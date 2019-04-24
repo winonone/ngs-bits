@@ -337,5 +337,9 @@ SUBDIRS += FastqConcat
 tools-TEST.depends += FastqConcat
 FastqConcat.depends = cppNGS
 
+SUBDIRS += SvEvidence
+tools-TEST.depends += SvEvidence
+SvEvidence.depends = cppNGS
+
 #other stuff
 OTHER_FILES += ToDos.txt
