@@ -9,6 +9,7 @@
 #include "ReportDialog.h"
 #include "NGSD.h"
 #include "FilterCascade.h"
+#include "RtfDocument.h"
 
 ///Report generation worker.
 class ReportWorker
@@ -28,7 +29,7 @@ public:
 	}
 
 	///writes a low-coverage report
-	void writeCoverageReport(QTextStream& stream, QString bam_file, QString roi_file, const BedFile& roi, const GeneSet& genes, int min_cov, NGSD& db, bool calculate_depth, QMap<QString, QString>* output=nullptr, bool gene_and_gap_details=true);
+	RtfTable writeCoverageReport(QString bam_file, QString roi_file, const BedFile& roi, const GeneSet& genes, int min_cov, NGSD& db, bool calculate_depth, QMap<QString, QString>* output=nullptr, bool gene_and_gap_details=true);
 	void writeCoverageReportCCDS(QTextStream& stream, QString bam_file, const GeneSet& genes, int min_cov, int extend, NGSD& db, QMap<QString, QString>* output=nullptr, bool gap_table=true, bool gene_details=true);
 
 	///Returns if the pre-calcualed gaps for the given ROI.
@@ -41,6 +42,10 @@ public:
 	static void writeHtmlHeader(QTextStream& stream, QString sample_name);
 	static void writeHtmlFooter(QTextStream& stream);
 	static void validateAndCopyReport(QString from, QString to, bool put_to_archive, bool is_rtf);
+
+	void writeRtf(const QByteArray& out_file);
+
+
 
 private:
 	//input variables
@@ -64,9 +69,15 @@ private:
 	//NGSD access
 	NGSD db_;
 
+
+	RtfDocument doc_;
+
 	QString trans(const QString& text) const;
-	QString formatCodingSplicing(const QList<VariantTranscript>& transcripts);
-	QString inheritance(QString gene_info, bool color=true);
+
+	QByteArray translate(const QByteArray& text) const;
+
+	QByteArrayList formatCodingSplicing(const QList<VariantTranscript>& transcripts);
+	QByteArray inheritance(QString gene_info, bool color=true);
 	int annotationIndexOrException(const QString& name, bool exact_match) const;
 	void writeHTML();
 	void writeXML(QString outfile_name);

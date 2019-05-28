@@ -55,12 +55,14 @@ void ReportWorker::process()
 	}
 
 	roi_stats_.clear();
-	writeHTML();
+
+	writeRtf("C:\\Users\\ahgscha1\\Desktop\\germline_test_report.rtf");
+
 }
 
-QString ReportWorker::formatCodingSplicing(const QList<VariantTranscript>& transcripts)
+QByteArrayList ReportWorker::formatCodingSplicing(const QList<VariantTranscript>& transcripts)
 {
-	QList<QByteArray> output;
+	QByteArrayList output;
 	QList<QByteArray> output_pt;
 
 	foreach(const VariantTranscript& trans, transcripts)
@@ -81,32 +83,32 @@ QString ReportWorker::formatCodingSplicing(const QList<VariantTranscript>& trans
 		output = output_pt;
 	}
 
-	return output.join("<br />");
+	return output;
 }
 
-QString ReportWorker::inheritance(QString gene_info, bool color)
+QByteArray ReportWorker::inheritance(QString gene_info, bool color)
 {
-	QStringList output;
+	QByteArrayList output;
 	foreach(QString gene, gene_info.split(","))
 	{
 		//extract inheritance info
-		QString inheritance;
+		QByteArray inheritance;
 		QStringList parts = gene.replace('(',' ').replace(')',' ').split(' ');
 		foreach(QString part, parts)
 		{
-			if (part.startsWith("inh=")) inheritance = part.mid(4);
+			if (part.startsWith("inh=")) inheritance = part.mid(4).toUtf8();
 		}
 
 		if (color && inheritance=="n/a")
 		{
-			inheritance = "<span style=\"background-color: #FF0000\">n/a</span>";
+			inheritance = RtfText("n/a").setColor(1).RtfCode();
 		}
 		output << inheritance;
 	}
 	return output.join(",");
 }
 
-void ReportWorker::writeCoverageReport(QTextStream& stream, QString bam_file, QString roi_file, const BedFile& roi, const GeneSet& genes, int min_cov,  NGSD& db, bool calculate_depth, QMap<QString, QString>* output, bool gene_and_gap_details)
+RtfTable ReportWorker::writeCoverageReport(QString bam_file, QString roi_file, const BedFile& roi, const GeneSet& genes, int min_cov,  NGSD& db, bool calculate_depth, QMap<QString, QString>* output, bool gene_and_gap_details)
 {
 	//get target region coverages (from NGSD or calculate)
 	QString avg_cov = "";
@@ -131,8 +133,10 @@ void ReportWorker::writeCoverageReport(QTextStream& stream, QString bam_file, QS
 	{
 		if (stats[i].accession()=="QC:2000025") avg_cov = stats[i].toString();
 	}
-	stream << "<p><b>" << trans("Abdeckungsstatistik") << "</b>" << endl;
-	stream << "<br />" << trans("Durchschnittliche Sequenziertiefe") << ": " << avg_cov << endl;
+
+	RtfTable table;
+
+	table.addRow(RtfTableRow({translate("Durchschnittliche Sequenziertiefe") + ":",avg_cov.toUtf8()},{3000,6632}));
 
 	if (gene_and_gap_details)
 	{
@@ -174,7 +178,7 @@ void ReportWorker::writeCoverageReport(QTextStream& stream, QString bam_file, QS
 		//output
 		if (!genes.isEmpty())
 		{
-			QStringList complete_genes;
+			QByteArrayList complete_genes;
 			foreach(const QByteArray& gene, genes)
 			{
 				if (!grouped.contains(gene))
@@ -182,47 +186,44 @@ void ReportWorker::writeCoverageReport(QTextStream& stream, QString bam_file, QS
 					complete_genes << gene;
 				}
 			}
-			stream << "<br />" << trans("Komplett abgedeckte Gene") << ": " << complete_genes.join(", ") << endl;
+			table.addRow(RtfTableRow({translate("Komplett abgedeckte Gene") + ":", complete_genes.join(", ")},{3000,doc_.maxWidth()}));
 		}
 		QString gap_perc = QString::number(100.0*low_cov.baseCount()/roi.baseCount(), 'f', 2);
 		if (output!=nullptr) output->insert("gap_percentage", gap_perc);
-		stream << "<br />" << trans("Anteil Regionen mit Tiefe &lt;") << min_cov << ": " << gap_perc << "%" << endl;
+		table.addRow(RtfTableRow({translate("Anteil Regionen mit Tiefe < ") + QByteArray::number(min_cov) , gap_perc.toUtf8() + "%"},{3000,doc_.maxWidth()}));
 		if (!genes.isEmpty())
 		{
-			QStringList incomplete_genes;
+			QList<RtfSourceCode> incomplete_genes;
 			foreach(const QByteArray& gene, genes)
 			{
 				if (grouped.contains(gene))
 				{
-					incomplete_genes << gene + " <span style=\"font-size: 80%;\">" + QString::number(grouped[gene].baseCount()) + "</span> ";
+					incomplete_genes << RtfText(gene).RtfCode() + RtfText(QByteArray::number(grouped[gene].baseCount())).setFontSize(14).RtfCode();
 				}
 			}
-			stream << "<br />" << trans("Fehlende Basen in nicht komplett abgedeckten Genen") << ": " << incomplete_genes.join(", ") << endl;
+			table.addRow(RtfTableRow({translate("Fehlende Basen in nicht komplett abgedeckten Genen") + ":",incomplete_genes.join(", ")},{3000,doc_.maxWidth()}));
 		}
 
-		stream << "</p>" << endl;
-		stream << "<p>" << trans("Details Regionen mit Tiefe &lt;") << min_cov << ":" << endl;
-		stream << "</p>" << endl;
-		stream << "<table>" << endl;
-		stream << "<tr><td><b>" << trans("Gen") << "</b></td><td><b>" << trans("L&uuml;cken") << "</b></td><td><b>" << trans("Chromosom") << "</b></td><td><b>" << trans("Koordinaten (hg19)") << "</b></td></tr>" << endl;
+		table.addRow(RtfTableRow("Details Regionen mit Tiefe < " + QByteArray::number(min_cov) + ":",doc_.maxWidth()));
+
+		table.addRow(RtfTableRow({translate("Gen"),translate("Lücken"),translate("Chromosom"),translate("Koordinaten (hg19)")},{2408,2408,2408,2408}));
+
+
 		for (auto it=grouped.cbegin(); it!=grouped.cend(); ++it)
 		{
-			stream << "<tr>" << endl;
-			stream << "<td>" << endl;
 			const BedFile& gaps = it.value();
-			QString chr = gaps[0].chr().strNormalized(true);;
-			QStringList coords;
+			QByteArray chr = gaps[0].chr().strNormalized(true);
+			QByteArrayList coords;
 			for (int i=0; i<gaps.count(); ++i)
 			{
-				coords << QString::number(gaps[i].start()) + "-" + QString::number(gaps[i].end());
+				coords << QByteArray::number(gaps[i].start()) + "-" + QByteArray::number(gaps[i].end());
 			}
-			stream << it.key() << "</td><td>" << gaps.baseCount() << "</td><td>" << chr << "</td><td>" << coords.join(", ") << endl;
 
-			stream << "</td>" << endl;
-			stream << "</tr>" << endl;
+			table.addRow(RtfTableRow({it.key(),QByteArray::number(gaps.baseCount()),chr,coords.join(", ")},{2408,2408,2408,2408}));
 		}
-		stream << "</table>" << endl;
 	}
+	table.setUniqueBorder(1,"brdrhair");
+	return table;
 }
 
 void ReportWorker::writeCoverageReportCCDS(QTextStream& stream, QString bam_file, const GeneSet& genes, int min_cov, int extend, NGSD& db, QMap<QString, QString>* output, bool gap_table, bool gene_details)
@@ -422,6 +423,172 @@ bool ReportWorker::isProcessingSystemTargetFile(QString bam_file, QString roi_fi
 	return Helper::canonicalPath(system_data.target_file) == Helper::canonicalPath(roi_file);
 }
 
+
+void ReportWorker::writeRtf(const QByteArray &out_file)
+{
+	doc_.setMargins(1134,1134,1134,1134);
+	doc_.addColor(255,0,0);
+
+	doc_.addPart(RtfParagraph("Technischer Report zur bioinformatischen Analyse").setBold(true).RtfCode());
+
+	//get data from database
+	QString sample_id = db_.sampleId(sample_name_);
+	SampleData sample_data = db_.getSampleData(sample_id);
+	QString processed_sample_id = db_.processedSampleId(sample_name_);
+	ProcessedSampleData processed_sample_data = db_.getProcessedSampleData(processed_sample_id);
+	ProcessingSystemData system_data = db_.getProcessingSystemData(processed_sample_id, true);
+
+	/********************
+	 * TECHNICAL REPORT *
+	 ********************/
+	RtfTable t_report;
+
+	t_report.addRow(RtfTableRow({"Probe:", sample_name_.toUtf8() + " (" + sample_data.name_external.toUtf8() + ")"},{2500,doc_.maxWidth()}));
+	t_report.addRow(RtfTableRow({"Prozessierungssystem:", processed_sample_data.processing_system.toUtf8()},{2500,doc_.maxWidth()}));
+	t_report.addRow(RtfTableRow({"Referenzgenom:", system_data.genome.toUtf8()},{2500,doc_.maxWidth()}));
+	t_report.addRow(RtfTableRow({"Datum:",  QDate::currentDate().toString("dd.MM.yyyy").toUtf8()},{2500,doc_.maxWidth()}));
+	t_report.addRow(RtfTableRow({"Benutzer:",Helper::userName().toUtf8()},{2500,doc_.maxWidth()}));
+	t_report.addRow(RtfTableRow({"Analysepipeline:",variants_.getPipeline().toUtf8()},{2500,doc_.maxWidth()}));
+	t_report.addRow(RtfTableRow({"Auswertungssoftware:",QCoreApplication::applicationName().toUtf8()},{2500,doc_.maxWidth()}));
+	t_report.addRow(RtfTableRow({"KASP-Ergebnis:",db_.getQCData(processed_sample_id).value("kasp").asString().toUtf8()},{2500,doc_.maxWidth()}));
+	t_report.setUniqueBorder(0);
+
+	doc_.addPart(t_report.RtfCode());
+
+	doc_.addPart(RtfParagraph("").RtfCode());
+
+	//Phenotype information
+	doc_.addPart(RtfParagraph("Phänotyp").setBold(true).RtfCode());
+	RtfTable phenotypes;
+	QList<SampleDiseaseInfo> info = db_.getSampleDiseaseInfo(sample_id, "ICD10 code");
+	foreach(const SampleDiseaseInfo& entry, info)
+	{
+		phenotypes.addRow(RtfTableRow({"ICD10:",entry.disease_info.toUtf8()},{1000,doc_.maxWidth()}));
+	}
+	info = db_.getSampleDiseaseInfo(sample_id, "HPO term id");
+	foreach(const SampleDiseaseInfo& entry, info)
+	{
+		phenotypes.addRow(RtfTableRow({"HPO:",entry.disease_info.toUtf8() + " (" + db_.phenotypeByAccession(entry.disease_info.toLatin1(), false).name() + ")"},{1000,doc_.maxWidth()}));
+	}
+
+	doc_.addPart(phenotypes.RtfCode());
+
+	//Target region statistics
+	if(file_roi_ != "")
+	{
+		doc_.addPart(RtfParagraph(translate("Zielregion")).setBold(true).RtfCode());
+
+		doc_.addPart(RtfParagraph(translate("Die Zielregion umfasst mindestens die CCDS (\"consensus coding sequence\") unten genannter Gene ± Basen flankierender intronischer Sequenz, kann aber auch zusätzliche Exons und/oder flankierende Basen beinhalten.")).RtfCode());
+
+		RtfTable stat_table;
+		stat_table.addRow(RtfTableRow({translate("Name") + ":",QFileInfo(file_roi_).fileName().replace(".bed","").toUtf8()},{2500,doc_.maxWidth()}));
+		if(!genes_.isEmpty())
+		{
+			stat_table.addRow(RtfTableRow({translate("Ausgewertete Gene") + QByteArray::number(genes_.count()) + ":", genes_.join(", ")},{2500,doc_.maxWidth()}));
+		}
+
+		doc_.addPart(stat_table.RtfCode());
+	}
+
+	//get column indices
+	int i_genotype = variants_.getSampleHeader().infoByStatus(true).column_index;
+	int i_geneinfo = variants_.annotationIndexByName("gene_info", true, true);
+	int i_gene = variants_.annotationIndexByName("gene", true, true);
+	int i_co_sp = variants_.annotationIndexByName("coding_and_splicing", true, true);
+	int i_omim = variants_.annotationIndexByName("OMIM", true, true);
+	int i_class = variants_.annotationIndexByName("classification", true, true);
+	int i_comment = variants_.annotationIndexByName("comment", true, true);
+	int i_kg = variants_.annotationIndexByName("1000G", true, true);
+	int i_gnomad = variants_.annotationIndexByName("gnomAD", true, true);
+
+
+	//output: applied filters
+	doc_.addPart(RtfParagraph(translate("Filterkriterien")).setBold(true).RtfCode());
+	RtfTable applied_variants;
+
+	applied_variants.addRow(RtfTableRow({translate("Gefundene Varianten in Zielregion gesamt:"),QByteArray::number(var_count_)},{2500,doc_.maxWidth()}));
+	applied_variants.addRow(RtfTableRow({translate("Anzahl Varianten nach automatischer Filterung:"),QByteArray::number(settings_.variants_selected.count())},{2500,doc_.maxWidth()}));
+	for(int i=0;i<filters_.count();++i)
+	{
+		applied_variants.addRow(RtfTableRow(filters_[i]->toText().toUtf8(),doc_.maxWidth()));
+	}
+	doc_.addPart(applied_variants.RtfCode());
+	doc_.addPart(RtfParagraph("").RtfCode());
+	doc_.addPart(RtfParagraph(translate("Varianten nach klinischer Interpretation im Kontext der Fragestellung")).setBold(true).RtfCode());
+	RtfTable rare_variants;
+	rare_variants.addRow(RtfTableRow({translate("Gen"),translate("Variante"),translate("Genotyp"),translate("Details"),translate("Klasse"),translate("Vererbung"),"1000g","gnomAD"},{1204,1204,800,2820,800,1204,800,800}).setHeader());
+	for(int i=0;i< settings_.variants_selected.count();++i)
+	{
+		const Variant& variant = variants_[settings_.variants_selected[i]];
+		QByteArrayList raw_genes = variant.annotations().at(i_gene).split(',');
+		QList<RtfSourceCode> genes;
+		for(const auto& raw_gene : raw_genes)
+		{
+			genes << RtfText(raw_gene).setItalic(true).RtfCode();
+		}
+
+		RtfTableRow tmp_row;
+		tmp_row.addCell(1204,genes.join(", "));
+		tmp_row.addCell(1204,variant.chr().str() + ":" + QByteArray::number(variant.start()) + " " + variant.ref() + " > " + variant.obs());
+		tmp_row.addCell(800,variant.annotations().at(i_genotype));
+		tmp_row.addCell(formatCodingSplicing(variant.transcriptAnnotations(i_co_sp)),2820);
+		tmp_row.addCell(800,variant.annotations().at(i_class));
+		tmp_row.addCell(1204,inheritance(variant.annotations()[i_geneinfo]));
+
+		QByteArray freq = variant.annotations().at(i_kg).trimmed();
+		tmp_row.addCell(800,(freq.isEmpty() ? "n/a" : freq));
+
+		freq = variant.annotations().at(i_gnomad).trimmed();
+		tmp_row.addCell(800,(freq.isEmpty() ? "n/a" : freq));
+
+		rare_variants.addRow(RtfTableRow(tmp_row));
+
+		QString omim = variant.annotations().at(i_omim);
+		QByteArray comment = variant.annotations().at(i_comment);
+		if(comment != "" || omim != "")
+		{
+			QList<RtfSourceCode> parts;
+			if(comment != "") parts << RtfText(comment).setColor(1).RtfCode();
+			if(omim != "")
+			{
+				QStringList omim_parts = omim.append(" ").split("]; ");
+				foreach(QString omim_part, omim_parts)
+				{
+					if (omim_part.count()<10) continue;
+					omim = "OMIM ID: " + omim_part.left(6) + " Details: " + omim_part.mid(8).replace(",",", ");
+				}
+
+				parts << omim.toUtf8();
+			}
+			rare_variants.addRow(RtfTableRow(parts.join("\n\\line\n"),doc_.maxWidth()));
+		}
+
+	}
+
+	rare_variants.setUniqueBorder(1,"brdrhair");
+
+	doc_.addPart(rare_variants.RtfCode());
+
+	doc_.addPart(RtfParagraph(translate("Für Informationen zur Klassifizierung von Varianten, siehe allgemeine Zusatzinformationen.")).RtfCode());
+	doc_.addPart(RtfParagraph("").RtfCode());
+	doc_.addPart(RtfParagraph(translate("Teilweise können bei Varianten unklarer Signifikanz (Klasse 3) -  in Abhängigkeit von der Art der genetischen Veränderung, der Familienanamnese und der Klinik des/der Patienten - weiterführende Untersuchungen eine Änderung der Klassifizierung bewirken. Bei konkreten differentialdiagnostischen Hinweisen auf eine entsprechende Erkrankung ist eine humangenetische Mitbeurteilung erforderlich, zur Beurteilung ob erweiterte genetische Untersuchungen zielführend wären.")).RtfCode());
+
+
+	///low-coverage analysis
+	if (settings_.show_coverage_details && file_bam_!="")
+	{
+		doc_.addPart(writeCoverageReport(file_bam_, file_roi_, roi_, genes_, settings_.min_depth, db_, settings_.recalculate_avg_depth, &roi_stats_, settings_.roi_low_cov).RtfCode());
+
+		//writeCoverageReportCCDS(stream, file_bam_, genes_, settings_.min_depth, 0, db_, &roi_stats_, false, false);
+
+		//writeCoverageReportCCDS(stream, file_bam_, genes_, settings_.min_depth, 5, db_, nullptr, true, true);
+	}
+
+
+	doc_.save(out_file);
+}
+
+
 void ReportWorker::writeHtmlHeader(QTextStream& stream, QString sample_name)
 {
 	stream << "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\">" << endl;
@@ -562,7 +729,7 @@ void ReportWorker::writeHTML()
 		stream << "<td>" << endl;
 		stream  << variant.chr().str() << ":" << variant.start() << "&nbsp;" << variant.ref() << "&nbsp;&gt;&nbsp;" << variant.obs() << "</td>";
 		stream << "<td>" << variant.annotations().at(i_genotype) << "</td>" << endl;
-		stream << "<td>" << formatCodingSplicing(variant.transcriptAnnotations(i_co_sp)) << "</td>" << endl;
+		//stream << "<td>" << formatCodingSplicing(variant.transcriptAnnotations(i_co_sp)) << "</td>" << endl;
 		stream << "<td>" << variant.annotations().at(i_class) << "</td>" << endl;
 		stream << "<td>" << inheritance(variant.annotations()[i_geneinfo]) << "</td>" << endl;
 		QByteArray freq = variant.annotations().at(i_kg).trimmed();
@@ -616,7 +783,7 @@ void ReportWorker::writeHTML()
 	///low-coverage analysis
 	if (settings_.show_coverage_details && file_bam_!="")
 	{
-		writeCoverageReport(stream, file_bam_, file_roi_, roi_, genes_, settings_.min_depth, db_, settings_.recalculate_avg_depth, &roi_stats_, settings_.roi_low_cov);
+		//writeCoverageReport(stream, file_bam_, file_roi_, roi_, genes_, settings_.min_depth, db_, settings_.recalculate_avg_depth, &roi_stats_, settings_.roi_low_cov);
 
 		writeCoverageReportCCDS(stream, file_bam_, genes_, settings_.min_depth, 0, db_, &roi_stats_, false, false);
 
@@ -732,7 +899,7 @@ void ReportWorker::writeHTML()
 	outfile->close();
 
 
-	validateAndCopyReport(temp_filename, file_rep_,true,true);
+	//validateAndCopyReport(temp_filename, file_rep_,true,true);
 
 	//write XML file to transfer folder
 	QString gsvar_variant_transfer = Settings::string("gsvar_variant_transfer");
@@ -853,6 +1020,87 @@ QString ReportWorker::trans(const QString& text) const
 		de2en["Werden nicht mitgeteilt, k&ouml;nnen aber erfragt werden."] = "The variant is not considered to be the cause of the tested disease. Class 1 variants are not reported, but can be provided upon request.";
 		de2en["Zielregion"] = "Target region";
 		de2en["Die Zielregion umfasst mindestens die CCDS (\"consensus coding sequence\") unten genannter Gene &plusmn;20 Basen flankierender intronischer Sequenz, kann aber auch zus&auml;tzliche Exons und/oder flankierende Basen beinhalten."] = "The target region includes CCDS (\"consensus coding sequence\") of the genes listed below &plusmn;20 flanking bases of the intronic sequence. It may comprise additional exons and/or flanking bases.";
+		de2en["Name"] = "Name";
+		de2en["Ausgewertete Gene"] = "Genes analyzed";
+		de2en["OMIM Gene und Phenotypen"] = "OMIM gene and phenotypes";
+		de2en["OMIM Phenotypen"] = "OMIM phenotypes";
+		de2en["OMIM Gen MIM"] = "OMIM gene MIM";
+		de2en["Gen"] = "Gene";
+		de2en["Details zu Programmen der Analysepipeline"] = "Analysis pipeline tool details";
+		de2en["Parameter"] = "Parameters";
+		de2en["Version"] = "Version";
+		de2en["Tool"] = "Tool";
+		de2en["Abdeckungsstatistik"] = "Coverage statistics";
+		de2en["Durchschnittliche Sequenziertiefe"] = "Average sequencing depth";
+		de2en["Komplett abgedeckte Gene"] = "Genes without gaps";
+		de2en["Anteil Regionen mit Tiefe &lt;"] = "Percentage of regions with depth &lt;";
+		de2en["Fehlende Basen in nicht komplett abgedeckten Genen"] = "Number of missing bases for genes with gaps";
+		de2en["Details Regionen mit Tiefe &lt;"] = "Details regions with depth &lt;";
+		de2en["Koordinaten (hg19)"] = "Coordinates (hg19)";
+		de2en["Chromosom"] = "Chromosome";
+		de2en["L&uuml;cken"] = "Gaps";
+		de2en["Abdeckungsstatistik f&uuml;r CCDS"] = "Coverage statistics for CCDS";
+		de2en["Gr&ouml;&szlig;e"] = "Size";
+		de2en["Transcript"] = "Transcript";
+		de2en["gesamt"] = "overall";
+		de2en["mit Tiefe"] = "with depth";
+
+		if (!de2en.contains(text))
+		{
+			Log::warn("Could not translate to " + settings_.language + ": '" + text + "'");
+		}
+
+		return de2en[text];
+	}
+
+	THROW(ProgrammingException, "Unsupported language '" + settings_.language + "'!");
+}
+
+QByteArray ReportWorker::translate(const QByteArray& text) const
+{
+	if (settings_.language=="german")
+	{
+		return text;
+	}
+	else if (settings_.language=="english")
+	{
+		QHash<QString, QByteArray> de2en;
+		de2en["Technischer Report zur bioinformatischen Analyse"] = "Technical Report for Bioinformatic Analysis";
+		de2en["Probe"] = "Sample";
+		de2en["Prozessierungssystem"] = "Processing system";
+		de2en["Referenzgenom"] = "Reference genome";
+		de2en["Datum"] = "Date";
+		de2en["Benutzer"] = "User";
+		de2en["Analysepipeline"] = "Analysis pipeline";
+		de2en["Auswertungssoftware"] = "Analysis software";
+		de2en["KASP-Ergebnis"] = " KASP result";
+		de2en["Ph&auml;notyp"] = "Phenotype information";
+		de2en["Filterkriterien"] = "Criteria for variant filtering";
+		de2en["Gefundene Varianten in Zielregion gesamt"] = "Variants in target region";
+		de2en["Anzahl Varianten nach automatischer Filterung"] = "Variants after automated filters";
+		de2en["Varianten nach klinischer Interpretation im Kontext der Fragestellung"] = "List of prioritized variants";
+		de2en["Vererbung"] = "Inheritance";
+		de2en["Klasse"] = "Class";
+		de2en["Details"] = "Details";
+		de2en["Genotyp"] = "Genotype";
+		de2en["Variante"] = "Variant";
+		de2en["Gen"] = "Gene";
+		de2en["Für Informationen zur Klassifizierung von Varianten, siehe allgemeine Zusatzinformationen."] = "For further information regarding the classification see Additional Information.";
+		de2en["Teilweise können bei Varianten unklarer Signifikanz (Klasse 3) -  in Abhängigkeit von der Art der genetischen Veränderung, der Familienanamnese und der Klinik des/der Patienten - weiterführende Untersuchungen eine Änderung der Klassifizierung bewirken. Bei konkreten differentialdiagnostischen Hinweisen auf eine entsprechende Erkrankung ist eine humangenetische Mitbeurteilung erforderlich, zur Beurteilung ob erweiterte genetische Untersuchungen zielführend wären."] = "TODO";
+		de2en["Klassifikation von Varianten"] = "Classification of variants";
+		de2en["Die Klassifikation der Varianten erfolgt in Anlehnung an die Publikation von Plon et al. (Hum Mutat 2008)"] = "Classification and interpretation of variants: The classification of variants is based on the criteria of Plon et al. (PMID: 18951446). A short description of each class can be found in the following";
+		de2en["Klasse 5: Eindeutig pathogene Ver&auml;nderung / Mutation"] = "Class 5, pathogenic variant";
+		de2en["Ver&auml;nderung, die bereits in der Fachliteratur mit ausreichender Evidenz als krankheitsverursachend bezogen auf das vorliegende Krankheitsbild beschrieben wurde sowie als pathogen zu wertende Mutationstypen (i.d.R. Frameshift- bzw. Stoppmutationen)."] = "The variant is considered to be the cause of the patient's disease.";
+		de2en["Klasse 4: Wahrscheinlich pathogene Ver&auml;nderung"] = "Class 4, probably pathogenic variants";
+		de2en["DNA-Ver&auml;nderung, die aufgrund ihrer Eigenschaften als sehr wahrscheinlich krankheitsverursachend zu werten ist."] = "The identified variant is considered to be the probable cause of the patient's disease. This information should be used cautiously for clinical decision-making, as there is still a degree of uncertainty.";
+		de2en["Klasse 3: Variante unklarer Signifikanz (VUS) - Unklare Pathogenit&auml;t"] = "Class 3, variant of unclear significance (VUS)";
+		de2en["Variante, bei der es unklar ist, ob eine krankheitsverursachende Wirkung besteht. Diese Varianten werden tabellarisch im technischen Report mitgeteilt."] = "The variant has characteristics of being an independent disease-causing mutation, but insufficient or conflicting evidence exists.";
+		de2en["Klasse 2: Sehr wahrscheinlich benigne Ver&auml;nderungen"] = "Class 2, most likely benign variants";
+		de2en["Aufgrund der H&auml;ufigkeit in der Allgemeinbev&ouml;lkerung oder der Lokalisation bzw. aufgrund von Angaben in der Literatur sehr wahrscheinlich benigne. Werden nicht mitgeteilt, k&ouml;nnen aber erfragt werden."] = "The variant is not likely to be the cause of the tested disease. Class 2 variants are not reported, but can be provided upon request.";
+		de2en["Klasse 1: Benigne Ver&auml;nderungen"] = "Class 1, benign variants";
+		de2en["Werden nicht mitgeteilt, k&ouml;nnen aber erfragt werden."] = "The variant is not considered to be the cause of the tested disease. Class 1 variants are not reported, but can be provided upon request.";
+		de2en["Zielregion"] = "Target region";
+		de2en["Die Zielregion umfasst mindestens die CCDS (\"consensus coding sequence\") unten genannter Gene ± Basen flankierender intronischer Sequenz, kann aber auch zusätzliche Exons und/oder flankierende Basen beinhalten."] = "The target region includes CCDS (\"consensus coding sequence\") of the genes listed below ± flanking bases of the intronic sequence. It may comprise additional exons and/or flanking bases.";
 		de2en["Name"] = "Name";
 		de2en["Ausgewertete Gene"] = "Genes analyzed";
 		de2en["OMIM Gene und Phenotypen"] = "OMIM gene and phenotypes";

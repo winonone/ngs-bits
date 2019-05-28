@@ -70,6 +70,12 @@ public:
 		content_ = content.join("\n\\line\n");
 	}
 
+	RtfText& setColor(int color)
+	{
+		font_color_ = color;
+		return *this;
+	}
+
 
 
 	///Horizontal alignment c: center, l: left, r: right, j: justified

@@ -558,7 +558,8 @@ FilterAlleleFrequency::FilterAlleleFrequency()
 
 QString FilterAlleleFrequency::toText() const
 {
-	return name() + " &le; " + QString::number(getDouble("max_af", false), 'f', 2) + '%';
+	//return name() and "less equal" sign
+	return name() + " \\u8804; " + QString::number(getDouble("max_af", false), 'f', 2) + '%';
 }
 
 void FilterAlleleFrequency::apply(const VariantList& variants, FilterResult& result) const
@@ -734,7 +735,7 @@ FilterSubpopulationAlleleFrequency::FilterSubpopulationAlleleFrequency()
 
 QString FilterSubpopulationAlleleFrequency::toText() const
 {
-	return name() + " &le; " + QString::number(getDouble("max_af", false), 'f', 2) + '%';
+	return name() + " \\u8804; " + QString::number(getDouble("max_af", false), 'f', 2) + '%';
 }
 
 void FilterSubpopulationAlleleFrequency::apply(const VariantList& variants, FilterResult& result) const
@@ -834,7 +835,7 @@ FilterVariantCountNGSD::FilterVariantCountNGSD()
 
 QString FilterVariantCountNGSD::toText() const
 {
-	return name() + " &le; " + QString::number(getInt("max_count", false)) + (getBool("ignore_genotype") ? " (ignore genotype)" : "");
+	return name() + " \\u8804; " + QString::number(getInt("max_count", false)) + (getBool("ignore_genotype") ? " (ignore genotype)" : "");
 }
 
 void FilterVariantCountNGSD::apply(const VariantList& variants, FilterResult& result) const
@@ -1093,7 +1094,7 @@ FilterGeneConstraint::FilterGeneConstraint()
 
 QString FilterGeneConstraint::toText() const
 {
-	return name() + " o/e&le;" + QString::number(getDouble("max_oe_lof", false), 'f', 2) + " (pLI&ge;" + QString::number(getDouble("min_pli", false), 'f', 2) + ")";
+	return name() + " o/e\\u8804;" + QString::number(getDouble("max_oe_lof", false), 'f', 2) + " (pLI\\u8805;" + QString::number(getDouble("min_pli", false), 'f', 2) + ")";
 }
 
 void FilterGeneConstraint::apply(const VariantList& variants, FilterResult& result) const
@@ -1497,7 +1498,7 @@ FilterPredictionPathogenic::FilterPredictionPathogenic()
 
 QString FilterPredictionPathogenic::toText() const
 {
-	return name() + " " + getString("action", false) + " &ge; " + QString::number(getInt("min", false));
+	return name() + " " + getString("action", false) + " \\u8805; " + QString::number(getInt("min", false));
 }
 
 void FilterPredictionPathogenic::apply(const VariantList& variants, FilterResult& result) const
@@ -1731,7 +1732,7 @@ FilterVariantQC::FilterVariantQC()
 
 QString FilterVariantQC::toText() const
 {
-	return name() + " qual&ge;" + QString::number(getInt("qual", false)) + " depth&ge;" + QString::number(getInt("depth", false)) + " mapq&ge;" + QString::number(getInt("mapq", false));
+	return name() + " qual\\u8805;" + QString::number(getInt("qual", false)) + " depth\\u8805;" + QString::number(getInt("depth", false)) + " mapq\\u8805;" + QString::number(getInt("mapq", false));
 }
 
 void FilterVariantQC::apply(const VariantList& variants, FilterResult& result) const
@@ -2085,7 +2086,7 @@ FilterConservedness::FilterConservedness()
 
 QString FilterConservedness::toText() const
 {
-	return name() + " phyloP&ge;" + QString::number(getDouble("min_score", false));
+	return name() + " phyloP\\u8805;" + QString::number(getDouble("min_score", false));
 }
 
 void FilterConservedness::apply(const VariantList& variants, FilterResult& result) const

@@ -324,7 +324,7 @@
        </layout>
       </item>
       <item>
-       <layout class="QHBoxLayout" name="control_panel_2" stretch="0,0,0,0,0,0,0,0,0,0,0,0,0,0">
+       <layout class="QHBoxLayout" name="control_panel_2" stretch="0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0">
         <property name="spacing">
          <number>6</number>
         </property>
@@ -456,6 +456,20 @@
           </property>
           <property name="value">
            <number>30</number>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QCheckBox" name="filter_t_region_a">
+          <property name="text">
+           <string/>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QCheckBox" name="filter_t_region_b">
+          <property name="text">
+           <string/>
           </property>
          </widget>
         </item>

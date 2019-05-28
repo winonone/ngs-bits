@@ -1643,7 +1643,7 @@ void MainWindow::generateReport()
 	dialog.addVariants(variants_, visible);
 	dialog.setTargetRegionSelected(ui_.filters->targetRegion()!="");
 	if (!dialog.exec()) return;
-	ReportSettings settings = dialog.settings();
+	//ReportSettings settings = dialog.settings();
 
 	//get export file name
 	QString base_name = processedSampleName();
@@ -1658,14 +1658,15 @@ void MainWindow::generateReport()
 	bam_file = bams.first().filename;
 
 	//update diagnostic status
-	NGSD db;
-	db.setDiagnosticStatus(db.processedSampleId(filename_), settings.diag_status);
+	//NGSD db;
+	//db.setDiagnosticStatus(db.processedSampleId(filename_), settings.diag_status);
 	//show busy dialog
 	busy_dialog_ = new BusyDialog("Report", this);
 	busy_dialog_->init("Generating report", false);
 
 	//start worker in new thread
 	ReportWorker* worker = new ReportWorker(base_name, bam_file, ui_.filters->targetRegion(), variants_, ui_.filters->filters(), preferred_transcripts_, dialog.settings(), getLogFiles(), file_rep);
+	worker->process();
 	connect(worker, SIGNAL(finished(bool)), this, SLOT(reportGenerationFinished(bool)));
 	worker->start();
 }
