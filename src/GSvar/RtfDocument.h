@@ -399,6 +399,7 @@ public:
 
 	///sets consistent border to all cells
 	RtfTableRow& setBorders(int width, const QByteArray& type="brdrs");
+	RtfTableRow& setBorders(int width, const QByteArray &type,int color);
 	///sets border color for all cells
 	RtfTableRow& setBorderColor(int border_color)
 	{
@@ -470,6 +471,11 @@ public:
 	void prependRow(const RtfTableRow row)
 	{
 		rows_.prepend(row);
+	}
+
+	void removeRow(int row)
+	{
+		rows_.removeAt(row);
 	}
 
 	RtfSourceCode RtfCode();
