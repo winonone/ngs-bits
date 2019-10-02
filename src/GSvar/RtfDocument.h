@@ -204,6 +204,12 @@ public:
 		body_parts_ << part;
 	}
 
+
+	void addBlankLine()
+	{
+		addPart(RtfParagraph("").RtfCode());
+	}
+
 	///Converts German special characters to unicode notation.
 	static RtfSourceCode escapeUmlauts(const QByteArray& text);
 	///Converts centimeters into RTF twip format
@@ -516,6 +522,19 @@ public:
 
 private:
 	QList<RtfTableRow> rows_;
+};
+
+
+class RtfList
+{
+public:
+	void append(QByteArray new_entry)
+	{
+		entries_.append(new_entry);
+	}
+
+private:
+	QList<QByteArray> entries_;
 };
 
 #endif // RTFDOCUMENT_H

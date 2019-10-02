@@ -19,7 +19,7 @@ class ReportWorker
 
 public:
 	///Constructor.
-	ReportWorker(QString sample_name, QString file_bam, QString file_roi, const VariantList& variants, const FilterCascade& filters, const QMap<QString, QStringList>& preferred_transcripts, ReportSettings settings, QStringList log_files, QString file_rep);
+    ReportWorker(QString sample_name, QString file_bam, QString file_roi, const VariantList& variants, const FilterCascade& filters, ReportSettings settings, QStringList log_files, QString file_rep);
 	virtual void process();
 
 	///Returns the file to which the HTML report was written.
@@ -29,8 +29,8 @@ public:
 	}
 
 	///writes a low-coverage report
-	RtfTable writeCoverageReport(QString bam_file, QString roi_file, const BedFile& roi, const GeneSet& genes, int min_cov, NGSD& db, bool calculate_depth, QMap<QString, QString>* output=nullptr, bool gene_and_gap_details=true);
-	void writeCoverageReportCCDS(QTextStream& stream, QString bam_file, const GeneSet& genes, int min_cov, int extend, NGSD& db, QMap<QString, QString>* output=nullptr, bool gap_table=true, bool gene_details=true);
+	RtfTable writeCoverageReportTable(QString bam_file, QString roi_file, const BedFile& roi, const GeneSet& genes, int min_cov, NGSD& db, bool calculate_depth, QMap<QString, QString>* output=nullptr, bool gene_and_gap_details=true);
+	RtfTable writeCoverageReportCCDS(QString bam_file, const GeneSet& genes, int min_cov, int extend, NGSD& db, QMap<QString, QString>* output=nullptr, bool gap_table=true, bool gene_details=true);
 
 	///Returns if the pre-calcualed gaps for the given ROI.
 	///If using the pre-calculated gaps file is not possible, @p message contains an error message.
@@ -43,9 +43,7 @@ public:
 	static void writeHtmlFooter(QTextStream& stream);
 	static void validateAndCopyReport(QString from, QString to, bool put_to_archive, bool is_rtf);
 
-	void writeRtf(const QByteArray& out_file);
-
-
+	static QByteArray inheritance(const QByteArray& gene_info);
 
 private:
 	//input variables
@@ -53,8 +51,8 @@ private:
 	QString file_bam_;
 	QString file_roi_;
 	const VariantList& variants_;
-	FilterCascade filters_;
-	const QMap<QString, QStringList>& preferred_transcripts_;
+    FilterCascade filters_;
+
 	ReportSettings settings_;
 	QStringList log_files_;
 	//output variables
@@ -69,18 +67,16 @@ private:
 	//NGSD access
 	NGSD db_;
 
+	RtfSourceCode trans(const QByteArray& text) const;
+	QList<QByteArray> formatCodingSplicing(const QList<VariantTranscript>& transcripts);
+	QByteArray formatGenotype(const QByteArray& gender, const QByteArray& genotype, const Variant& variant);
+	void writeHTML();
+	void writeXML(QString outfile_name, QString report_document);
+
+
+	void writeRtf();
 
 	RtfDocument doc_;
-
-	QString trans(const QString& text) const;
-
-	QByteArray translate(const QByteArray& text) const;
-
-	QByteArrayList formatCodingSplicing(const QList<VariantTranscript>& transcripts);
-	QByteArray inheritance(QString gene_info, bool color=true);
-	int annotationIndexOrException(const QString& name, bool exact_match) const;
-	void writeHTML();
-	void writeXML(QString outfile_name);
 };
 
 #endif
